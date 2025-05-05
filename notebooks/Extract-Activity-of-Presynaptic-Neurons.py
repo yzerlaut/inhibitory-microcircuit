@@ -14,7 +14,7 @@
 # ---
 
 # %%
-import sys
+import sys, os
 sys.path.append('./microns_phase3_nda')
 
 
@@ -33,22 +33,45 @@ client = CAVEclient('minnie65_public')
 matched_df = client.materialize.query_table('coregistration_manual_v4')
 
 # %%
-pre_coreg_BCs = np.load('data/pre_coreg_BCs.npy', allow_pickle=True).item()
+pre_coreg_BCs = np.load('data/functional/pre_coreg_BCs.npy', allow_pickle=True).item()
+pre_coreg_MCs = np.load('data/functional/pre_coreg_MCs.npy', allow_pickle=True).item()
 
 # %%
-nMax = 10
+nMax = 100000
 
-
-for post in list(pre_coreg_BCs.keys())[:1]:
+for pre_coreg in [pre_coreg_BCs, pre_coreg_MCs]:
     
-    unit_keys = []
-    for pre in pre_coreg_BCs[post][:nMax]:
+    for post in list(pre_coreg.keys()):
         
-        entry = matched_df[matched_df['pt_root_id']==pre]
-        unit_keys.append(entry[['session', 'scan_idx', 'unit_id']].to_dict(orient='records')[0])
+        unit_keys = []
+        for pre in pre_coreg[post][:nMax]:
+            
+            entry = matched_df[matched_df['pt_root_id']==pre]
+            unit_key = entry[['session', 'scan_idx', 'unit_id']].to_dict(orient='records')[0]
+            unit_keys.append(unit_key)
+    
+            # cellular data
+            cFile = os.path.join('data', 'functional', 'cells', '%s.npy' % pre)
+            cell_data = dict(\
+                    session = unit_key['session'],
+                    scan_idx = unit_key['scan_idx'],
+                    spike_trace = (nda.Activity & unit_key).fetch1('trace'),
+                    calcium_trace = (nda.ScanUnit * nda.Fluorescence & unit_key).fetch1('trace')
+            )
+            np.save(cFile, cell_data)
+            
+            # session data
+            sFile = os.path.join('data', 'functional', 'sessions', 'session_%i-scan_idx_%i.npy' % (unit_key['session'], unit_key['scan_idx']))
+            if not os.path.isfile(sFile):
+                session_data = dict(\
+                    movie = (nda.Stimulus & unit_key).fetch1('movie'),
+                    nframes = (nda.Scan & unit_key).fetch1('nframes'),
+                    fps = (nda.Scan & unit_key).fetch1('fps'),
+                    pupil_radius = (nda.ManualPupil & unit_key).fetch1('pupil_maj_r'),
+                    treadmill = (nda.Treadmill & unit_key).fetch1('treadmill_velocity'))
+                np.save(sFile, session_data)
 
 
-# %%
 
 # %%
 for unit_key in unit_keys[:1]:
