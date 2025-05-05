@@ -1,0 +1,6 @@
+[submodule "microns-nda-access"]
+	path = microns-nda-access
+	url = https://github.com/cajal/microns-nda-access.git
+[submodule "microns_phase3_nda"]
+	path = microns_phase3_nda
+	url = https://github.com/cajal/microns_phase3_nda.git
